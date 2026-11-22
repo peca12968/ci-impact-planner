@@ -1,0 +1,11 @@
+{
+  "name": "ci-impact-planner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "demo": "node cli.js examples/projects.json packages/contracts/schema.json"
+  },
+  "engines": {"node": ">=22"}
+}

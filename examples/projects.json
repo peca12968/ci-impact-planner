@@ -1,0 +1,9 @@
+{
+  "projects": [
+    {"name":"contracts", "dir":"packages/contracts", "dependencies":[]},
+    {"name":"api", "dir":"apps/api", "dependencies":["contracts"]},
+    {"name":"web", "dir":"apps/web", "dependencies":["contracts"]},
+    {"name":"checkout-e2e", "dir":"tests/checkout", "dependencies":["api","web"]},
+    {"name":"docs", "dir":"apps/docs", "dependencies":[]}
+  ]
+}

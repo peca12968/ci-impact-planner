@@ -17,5 +17,6 @@ jobs:
       - run: npm ci
       - run: python reference.py
       - run: npm test
+      - run: node plan.js examples/checkout-plan.json demo-0090
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

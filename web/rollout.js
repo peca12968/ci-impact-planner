@@ -1,7 +1,7 @@
 // The flag and subject identify an allocation across both policies.
 const encoder = new TextEncoder();
 
-function identity(value) {
+export function normalizeIdentifier(value) {
   if (typeof value !== "string" || !value.trim() || !value.isWellFormed()) {
     throw new TypeError("Expected a nonempty Unicode identifier");
   }
@@ -16,8 +16,8 @@ async function bucket(domain, flag, subject) {
 }
 
 export async function subjectBuckets(flag, subject) {
-  const key = identity(flag);
-  const id = identity(subject);
+  const key = normalizeIdentifier(flag);
+  const id = normalizeIdentifier(subject);
   const [exposure, variant] = await Promise.all([
     bucket("exposure", key, id),
     bucket("variant", key, id),
@@ -30,7 +30,7 @@ function checkBasisPoints(value) {
     throw new RangeError("Expected integer basis points between 0 and 10000");
 }
 
-export function compilePolicy({ rollout, variants }) {
+export function preparePolicy({ rollout, variants }) {
   checkBasisPoints(rollout);
   if (!Array.isArray(variants) || !variants.length)
     throw new Error("Expected at least one variant");
@@ -45,7 +45,7 @@ export function compilePolicy({ rollout, variants }) {
     return { name, end };
   });
   if (end !== 10000) throw new Error("Variant weights must sum to 10000");
-  return ({ exposure, variant }) => {
+  function assign({ exposure, variant }) {
     if (
       ![exposure, variant].every(
         (n) => Number.isInteger(n) && n >= 0 && n < 10000,
@@ -54,7 +54,12 @@ export function compilePolicy({ rollout, variants }) {
       throw new Error("Invalid subject bucket");
     if (exposure >= rollout) return null;
     return ranges.find((range) => variant < range.end).name;
-  };
+  }
+  return { rollout, ranges, assign };
+}
+
+export function compilePolicy(policy) {
+  return preparePolicy(policy).assign;
 }
 
 export function compareAudience(audience, current, proposed) {

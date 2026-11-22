@@ -21,22 +21,60 @@ type masks []image.Rectangle
 
 func (m *masks) String() string { return fmt.Sprint([]image.Rectangle(*m)) }
 func (m *masks) Set(value string) error {
-	fields := strings.Split(value, ",")
+	rect, err := parseRect(strings.Split(value, ","))
+	if err == nil {
+		*m = append(*m, rect)
+	}
+	return err
+}
+
+func parseRect(fields []string) (image.Rectangle, error) {
 	if len(fields) != 4 {
-		return errors.New("expected mask x,y,width,height")
+		return image.Rectangle{}, errors.New("expected x,y,width,height")
 	}
 	var v [4]int
 	for i, field := range fields {
 		n, err := strconv.Atoi(field)
 		if err != nil || n < 0 || n > maxPixels {
-			return errors.New("invalid mask coordinate")
+			return image.Rectangle{}, errors.New("invalid rectangle coordinate")
 		}
 		v[i] = n
 	}
 	if v[2] == 0 || v[3] == 0 {
-		return errors.New("empty mask")
+		return image.Rectangle{}, errors.New("empty rectangle")
 	}
-	*m = append(*m, image.Rect(v[0], v[1], v[0]+v[2], v[1]+v[3]))
+	return image.Rect(v[0], v[1], v[0]+v[2], v[1]+v[3]), nil
+}
+
+type zone struct {
+	name   string
+	rect   image.Rectangle
+	budget int
+}
+
+type zones []zone
+
+func (z *zones) String() string { return fmt.Sprint([]zone(*z)) }
+func (z *zones) Set(value string) error {
+	fields := strings.Split(value, ",")
+	if len(fields) != 6 || strings.TrimSpace(fields[0]) == "" {
+		return errors.New("expected zone name,x,y,width,height,budget")
+	}
+	name := strings.TrimSpace(fields[0])
+	for _, prior := range *z {
+		if prior.name == name {
+			return fmt.Errorf("duplicate zone %q", name)
+		}
+	}
+	rect, err := parseRect(fields[1:5])
+	if err != nil {
+		return err
+	}
+	budget, err := strconv.Atoi(fields[5])
+	if err != nil || budget < 0 {
+		return errors.New("zone budget must be a nonnegative integer")
+	}
+	*z = append(*z, zone{name, rect, budget})
 	return nil
 }
 
@@ -98,6 +136,8 @@ func run(args []string) (int, error) {
 	output := flags.String("diff", "", "write a diagnostic PNG")
 	var ignores masks
 	flags.Var(&ignores, "ignore", "ignore a rectangle x,y,width,height (repeatable)")
+	var checks zones
+	flags.Var(&checks, "zone", "check name,x,y,width,height,budget (repeatable)")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0, nil
@@ -123,7 +163,12 @@ func run(args []string) (int, error) {
 			return 2, errors.New("mask exceeds screenshot bounds")
 		}
 	}
-	report, diff := compare(base, candidate, ignores, *tolerance, *budget)
+	for _, check := range checks {
+		if !check.rect.In(base.Bounds()) {
+			return 2, fmt.Errorf("zone %q exceeds screenshot bounds", check.name)
+		}
+	}
+	report, diff := compare(base, candidate, ignores, checks, *tolerance, *budget)
 	if *output != "" {
 		if err := writeDiff(*output, diff, flags.Args()); err != nil {
 			return 2, err

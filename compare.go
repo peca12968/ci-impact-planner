@@ -15,13 +15,70 @@ type Region struct {
 }
 
 type Report struct {
-	Width       int      `json:"width"`
-	Height      int      `json:"height"`
-	Ignored     int      `json:"ignored_pixels"`
-	Changed     int      `json:"changed_pixels"`
-	RegionCount int      `json:"region_count"`
-	Largest     []Region `json:"largest_regions"`
-	Passed      bool     `json:"passed"`
+	Width        int          `json:"width"`
+	Height       int          `json:"height"`
+	Ignored      int          `json:"ignored_pixels"`
+	Changed      int          `json:"changed_pixels"`
+	RegionCount  int          `json:"region_count"`
+	Largest      []Region     `json:"largest_regions"`
+	GlobalPassed bool         `json:"global_passed"`
+	Zones        []ZoneResult `json:"zones,omitempty"`
+	Passed       bool         `json:"passed"`
+}
+
+type ZoneResult struct {
+	Name     string `json:"name"`
+	Budget   int    `json:"budget"`
+	Compared int    `json:"compared_pixels"`
+	Changed  int    `json:"changed_pixels"`
+	Passed   bool   `json:"passed"`
+}
+
+// Sample a running 2D prefix sum at the top and bottom edges of each rectangle.
+// Overlapping zones share the scan. Only one row of prefix sums stays in memory.
+func evaluateZones(state []byte, width int, checks []zone) []ZoneResult {
+	if len(checks) == 0 {
+		return nil
+	}
+	type edge struct{ index, sign int }
+	edges := make(map[int][]edge)
+	results := make([]ZoneResult, len(checks))
+	lastRow := 0
+	for i, check := range checks {
+		r := check.rect
+		results[i] = ZoneResult{Name: check.name, Budget: check.budget}
+		if r.Min.Y > 0 {
+			edges[r.Min.Y] = append(edges[r.Min.Y], edge{i, -1})
+		}
+		edges[r.Max.Y] = append(edges[r.Max.Y], edge{i, 1})
+		lastRow = max(lastRow, r.Max.Y)
+	}
+	type counts struct{ compared, changed int }
+	prefix := make([]counts, width+1)
+	for y := 0; y < lastRow; y++ {
+		var row counts
+		for x, pixel := range state[y*width : (y+1)*width] {
+			if pixel != 2 {
+				row.compared++
+			}
+			if pixel == 1 {
+				row.changed++
+			}
+			prefix[x+1].compared += row.compared
+			prefix[x+1].changed += row.changed
+		}
+		for _, e := range edges[y+1] {
+			r := checks[e.index].rect
+			left, right := prefix[r.Min.X], prefix[r.Max.X]
+			results[e.index].Compared += e.sign * (right.compared - left.compared)
+			results[e.index].Changed += e.sign * (right.changed - left.changed)
+		}
+	}
+	for i := range results {
+		z := &results[i]
+		z.Passed = z.Compared > 0 && z.Changed <= z.Budget
+	}
+	return results
 }
 
 // Go supplies premultiplied 16-bit channels. Composite onto white, then round to 8 bits.
@@ -31,7 +88,7 @@ func visible(c color.Color) [3]int {
 	return [3]int{int((r + white) / 257), int((g + white) / 257), int((b + white) / 257)}
 }
 
-func compare(base, candidate image.Image, ignores []image.Rectangle, tolerance, budget int) (Report, *image.RGBA) {
+func compare(base, candidate image.Image, ignores []image.Rectangle, checks []zone, tolerance, budget int) (Report, *image.RGBA) {
 	bounds := base.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	state := make([]byte, width*height)
@@ -67,6 +124,12 @@ func compare(base, candidate image.Image, ignores []image.Rectangle, tolerance, 
 				diff.SetRGBA(x, y, color.RGBA{shade, shade, shade, 255})
 			}
 		}
+	}
+	report.GlobalPassed = report.Changed <= budget
+	report.Passed = report.GlobalPassed
+	report.Zones = evaluateZones(state, width, checks)
+	for _, z := range report.Zones {
+		report.Passed = report.Passed && z.Passed
 	}
 	// Flood-fill only changed pixels. The top ten are kept in stable scan order on ties.
 	stack := []int{}
@@ -116,6 +179,5 @@ func compare(base, candidate image.Image, ignores []image.Rectangle, tolerance, 
 			}
 		}
 	}
-	report.Passed = report.Changed <= budget
 	return report, diff
 }

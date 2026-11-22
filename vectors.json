@@ -1,0 +1,50 @@
+[
+  {
+    "flag": "checkout-layout",
+    "subject": "demo-0001",
+    "exposure": 5181,
+    "variant": 758
+  },
+  {
+    "flag": "checkout-layout",
+    "subject": "demo-1000",
+    "exposure": 4429,
+    "variant": 5428
+  },
+  {
+    "flag": "checkout-layout",
+    "subject": "café",
+    "exposure": 833,
+    "variant": 5042
+  },
+  {
+    "flag": "checkout-layout",
+    "subject": "café",
+    "exposure": 833,
+    "variant": 5042
+  },
+  {
+    "flag": "結帳",
+    "subject": "顧客-🍊",
+    "exposure": 3953,
+    "variant": 5506
+  },
+  {
+    "flag": "quote\"flag",
+    "subject": "line\nbreak",
+    "exposure": 5619,
+    "variant": 1681
+  },
+  {
+    "flag": "a:b",
+    "subject": "c",
+    "exposure": 9072,
+    "variant": 484
+  },
+  {
+    "flag": "a",
+    "subject": "b:c",
+    "exposure": 9755,
+    "variant": 4364
+  }
+]

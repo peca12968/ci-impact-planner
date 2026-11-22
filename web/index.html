@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>發布預演 · Rollout Lab</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="brand"
+          ><span aria-hidden="true" class="mark">◧</span> Rollout Lab</span
+        ><span>功能發布工具</span>
+      </header>
+      <section class="intro">
+        <div>
+          <h1>發布預演</h1>
+          <p>比較結帳頁新舊設定對 1,000 個固定示範帳號的影響。</p>
+        </div>
+        <code>checkout-layout</code>
+      </section>
+      <div class="workspace">
+        <section class="settings" aria-labelledby="settings-title">
+          <h2 id="settings-title">發布設定</h2>
+          <div class="slider">
+            <label for="current">目前開放比例</label
+            ><output id="current-value" for="current">10%</output>
+            <input type="range" id="current" min="0" max="100" value="10" />
+          </div>
+          <div class="slider">
+            <label for="proposed">預計開放比例</label
+            ><output id="proposed-value" for="proposed">25%</output>
+            <input type="range" id="proposed" min="0" max="100" value="25" />
+          </div>
+          <div class="slider">
+            <label for="weight">新版設定中的 A 版比例</label
+            ><output id="weight-value" for="weight">50%</output>
+            <input type="range" id="weight" min="0" max="100" value="50" />
+          </div>
+          <p class="note">
+            目前 A、B 各占已開放帳號的 50%。新版剩餘比例分配至 B。
+          </p>
+        </section>
+        <section class="impact" aria-labelledby="impact-title">
+          <h2 id="impact-title">受影響帳號</h2>
+          <div class="numbers">
+            <div><span>新加入</span><b id="entered">—</b></div>
+            <div><span>退出</span><b id="exited">—</b></div>
+            <div><span>版本切換</span><b id="switched">—</b></div>
+            <div><span>維持原狀</span><b id="unchanged">—</b></div>
+          </div>
+          <div id="cohort" aria-hidden="true"></div>
+          <div class="legend">
+            <span class="entered">新加入</span><span class="exited">退出</span
+            ><span class="switched">版本切換</span
+            ><span class="unchanged">維持原狀</span>
+          </div>
+          <p class="note">每格代表一個帳號，依帳號編號排列。</p>
+        </section>
+      </div>
+      <section class="lookup" aria-labelledby="lookup-title">
+        <div>
+          <h2 id="lookup-title">查詢單一帳號</h2>
+          <label for="account">示範帳號編號（1–1000）</label>
+          <input type="number" id="account" min="1" max="1000" value="1" />
+        </div>
+        <p id="assignment" role="status">正在準備分組資料…</p>
+      </section>
+      <details>
+        <summary>查看有變動的帳號</summary>
+        <p id="list-note"></p>
+        <table>
+          <thead>
+            <tr>
+              <th>帳號</th>
+              <th>目前</th>
+              <th>預計</th>
+              <th>變動</th>
+            </tr>
+          </thead>
+          <tbody id="changes"></tbody>
+        </table>
+      </details>
+      <p id="error" role="alert"></p>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites><testsuite name="checkout" tests="5">
+  <testcase file="tests/test_orders.py" classname="tests.test_orders" name="test_create" time="0.003"/>
+  <testcase file="tests/test_orders.py" classname="tests.test_orders" name="test_cancel" time="0.005"/>
+  <testcase file="tests/test_receipts.py" classname="tests.test_receipts" name="test_receipt" time="0.006"/>
+  <testcase file="tests/test_home.py" classname="tests.test_home" name="test_home" time="0.007"/>
+  <testcase file="tests/test_checkout.py" classname="tests.test_checkout" name="test_checkout" time="0.005"/>
+</testsuite></testsuites>

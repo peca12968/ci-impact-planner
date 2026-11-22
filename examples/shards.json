@@ -1,0 +1,9 @@
+{
+  "setup_ms": {"database": 30, "browser": 30},
+  "files": [
+    {"path": "tests/test_orders.py", "fixture": "database", "fallback_ms": 10},
+    {"path": "tests/test_receipts.py", "fixture": "database", "fallback_ms": 10},
+    {"path": "tests/test_home.py", "fixture": "browser", "fallback_ms": 10},
+    {"path": "tests/test_checkout.py", "fixture": "browser", "fallback_ms": 10}
+  ]
+}

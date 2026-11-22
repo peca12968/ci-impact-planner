@@ -1,0 +1,15 @@
+{
+  "roots": [{"plugin":"layout","min":1,"max":2},{"plugin":"export","min":2,"max":2}],
+  "installed": {"layout":1,"engine":1,"export":1},
+  "catalog": {
+    "layout":[
+      {"revision":1,"requires":[{"plugin":"engine","min":1,"max":1}]},
+      {"revision":2,"requires":[{"plugin":"engine","min":2,"max":2}]}
+    ],
+    "export":[
+      {"revision":1,"requires":[{"plugin":"engine","min":1,"max":1}]},
+      {"revision":2,"requires":[{"plugin":"engine","min":1,"max":2}]}
+    ],
+    "engine":[{"revision":1},{"revision":2}]
+  }
+}

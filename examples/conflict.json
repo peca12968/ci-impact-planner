@@ -1,0 +1,9 @@
+{
+  "roots": [{"plugin":"layout","min":2,"max":2},{"plugin":"export","min":1,"max":1},{"plugin":"notes","min":1,"max":1}],
+  "catalog": {
+    "layout": [{"revision":2,"requires":[{"plugin":"engine","min":2,"max":2}]}],
+    "export": [{"revision":1,"requires":[{"plugin":"engine","min":1,"max":1}]}],
+    "engine": [{"revision":1},{"revision":2}],
+    "notes": [{"revision":1}]
+  }
+}

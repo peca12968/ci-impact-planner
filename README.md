@@ -15,6 +15,25 @@ node cli.js examples/projects.json package-lock.json
 
 範例包含五個專案。修改共用的 `contracts` 時，第一階段測 contracts，第二階段平行測 api 與 web，第三階段測 checkout-e2e。這次選中 4 個專案，獨立的 docs 可以略過。只改 web 時選中 2 個。變更根目錄鎖檔時，5 個全部重測。
 
+## 為什麼會跑這個測試？
+
+在清單路徑前加上 `--why 專案名稱`，可追查某項測試與本次變更的關係。下例同時修改共用契約、API 稅額計算與操作手冊。五個專案都會被選中，其中有兩個變更來源會觸發結帳測試。
+
+```sh
+node cli.js --why checkout-e2e examples/projects.json packages/contracts/schema.json apps/api/tax.js apps/docs/guide.md
+```
+
+| 變更檔案 | 通往 checkout-e2e 的相依路徑 |
+| --- | --- |
+| `apps/api/tax.js` | api → checkout-e2e |
+| `packages/contracts/schema.json` | contracts → api → checkout-e2e |
+
+手冊變更只影響 docs。共用契約另有一條經 web 的等長路徑，工具會選出名稱順序較前的 api。每個有關的變更專案各列一條最短路徑，並列出屬於該專案的所有變更檔案。變更直接落在待查專案時，路徑只含該專案。
+
+`why.selected` 表示該測試是否列入計畫。`why.causes` 保存檔案與相依路徑，`why.fullReasons` 則列出觸發全量測試的規則。舉例來說，只改根目錄鎖檔時，docs 仍會被選中，路徑清單為空，原因是 `unowned_paths`，檔名可在報告的 `unowned` 欄位找到。只改 web 時，查詢 docs 會得到 `selected: false`。
+
+同一個查詢也能搭配 `--stdin0` 或 `--git BASE HEAD`。一般呼叫保留原有 JSON 格式，指定未知專案會以結束碼 2 回報。
+
 ## 從 Git 提供輸入
 
 ### 規劃 PR 的測試範圍
@@ -50,6 +69,6 @@ git diff --no-renames --name-only -z BASE HEAD | node cli.js examples/projects.j
 
 [測試](test/planner.test.js)涵蓋菱形相依、循環、無歸屬路徑、穩定排序、CLI 輸入及失敗處理。[GitHub Actions](.github/workflows/ci.yml)在 Linux 與 Windows 的 Node.js 22、24 執行測試與 Git 串接示範。
 
-**履歷用語**　以 Node.js 實作 monorepo 測試範圍規劃工具，透過反向相依圖與拓撲排序決定受影響專案及平行測試順序，並驗證跨套件變更與全量回退行為。
+**履歷用語**　以 Node.js 與 Git 實作 monorepo 測試規劃器，從 PR 檔案變更追蹤至下游測試，列出每個變更來源的最短相依路徑，並以 64 張四專案有向無環圖逐一核對路徑選擇。
 
 本專案為 AI 輔助開發的作品集示範。範例數字代表測試計畫選中的專案數。

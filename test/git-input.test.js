@@ -32,8 +32,8 @@ function fixture(t) {
   write(manifest, graph);
   write("apps/docs/guide.txt", "checkout");
   const base = save("base");
-  const run = (baseRef, headRef, cwd = root, file = path.join(root, manifest)) =>
-    spawnSync(process.execPath, [cli, file, "--git", baseRef, headRef], {cwd, encoding:"utf8"});
+  const run = (baseRef, headRef, cwd = root, file = path.join(root, manifest), flags = []) =>
+    spawnSync(process.execPath, [cli, ...flags, file, "--git", baseRef, headRef], {cwd, encoding:"utf8"});
   const report = (...args) => {
     const result = run(...args);
     assert.equal(result.status, 0, result.stderr);
@@ -57,6 +57,11 @@ test("selects only branch changes, reporting both sides of moves even from a nes
   assert.deepEqual(report.direct, ["docs", "web"]);
   assert.deepEqual(report.stages, [["docs", "web"], ["checkout-e2e"]]);
   assert.equal(report.selected, 3);
+  const detail = f.report("main", "feature", path.join(f.root, "apps", "docs"), "graph.json", ["--why", "checkout-e2e"]);
+  assert.deepEqual(detail, {...report, why: {
+    project: "checkout-e2e", selected: true, fullReasons: [],
+    causes: [{files: ["apps/web/page.js", "apps/web/user guide.txt"], chain: ["web", "checkout-e2e"]}]
+  }});
 });
 
 test("empty head diff is empty even when the target branch advanced", t => {
@@ -78,6 +83,8 @@ test("edits to a nested manifest select all projects from the head revision", t 
   assert.equal(report.fullReason, "manifest_changed");
   assert.equal(report.selected, 6);
   assert.ok(report.stages.flat().includes("mobile"));
+  const detail = f.report(f.base, head, undefined, undefined, ["--why", "mobile"]);
+  assert.deepEqual(detail.why, {project: "mobile", selected: true, causes: [], fullReasons: ["manifest_changed"]});
 });
 
 test("criss-cross history selects all projects and reports both merge bases", t => {
@@ -87,10 +94,11 @@ test("criss-cross history selects all projects and reports both merge bases", t 
     f.git("commit-tree", tree, "-m", message, ...parents.flatMap(p => ["-p", p]));
   const a = commit("left", f.base);
   const b = commit("right", f.base);
-  const report = f.report(commit("a+b", a, b), commit("b+a", b, a));
+  const report = f.report(commit("a+b", a, b), commit("b+a", b, a), undefined, undefined, ["--why", "web"]);
   assert.equal(report.fullReason, "multiple_merge_bases");
   assert.deepEqual(report.comparison.mergeBases, [a, b].sort());
   assert.equal(report.selected, 5);
+  assert.deepEqual(report.why, {project: "web", selected: true, causes: [], fullReasons: ["multiple_merge_bases"]});
 });
 
 test("a directory alias resolves to the tracked manifest even if its parent only exists at head", t => {

@@ -4,10 +4,11 @@ permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         node: ['22', '24']
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +17,7 @@ jobs:
       - run: npm test
       - run: npm run demo
       - name: Exercise Git-to-planner pipeline
+        shell: bash
         run: |
           set -o pipefail
           fixture=$(mktemp -d)

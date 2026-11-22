@@ -63,7 +63,7 @@ function layers(projects, dependents, selected) {
   return stages;
 }
 
-export function plan(manifest, changedFiles) {
+export function plan(manifest, changedFiles, fullReason = null) {
   const {projects, dependents} = inspect(manifest);
   const all = new Set(projects.keys());
   const complete = layers(projects, dependents, all);
@@ -75,7 +75,7 @@ export function plan(manifest, changedFiles) {
     if (owner) direct.add(owner.name);
     else unowned.add(file);
   }
-  const full = unowned.size > 0;
+  const full = unowned.size > 0 || fullReason !== null;
   const affected = new Set(direct);
   const queue = [...direct];
   for (let i = 0; i < queue.length; i++) {
@@ -89,6 +89,7 @@ export function plan(manifest, changedFiles) {
   const stages = full ? complete : layers(projects, dependents, affected);
   return {
     mode: full ? "full" : "affected",
+    ...(fullReason ? {fullReason} : {}),
     direct: [...direct].sort(),
     unowned: [...unowned].sort(),
     stages,

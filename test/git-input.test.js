@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {execFileSync, spawnSync} from "node:child_process";
-import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -90,6 +90,21 @@ test("criss-cross history selects all projects and reports both merge bases", t 
   const report = f.report(commit("a+b", a, b), commit("b+a", b, a));
   assert.equal(report.fullReason, "multiple_merge_bases");
   assert.deepEqual(report.comparison.mergeBases, [a, b].sort());
+  assert.equal(report.selected, 5);
+});
+
+test("a directory alias resolves to the tracked manifest even if its parent only exists at head", t => {
+  const f = fixture(t);
+  const aliasDir = mkdtempSync(path.join(os.tmpdir(), "ci-impact-alias-"));
+  t.after(() => rmSync(aliasDir, {recursive:true, force:true, maxRetries:3}));
+  const alias = path.join(aliasDir, "checkout");
+  symlinkSync(f.root, alias, process.platform === "win32" ? "junction" : "dir");
+  const added = "config/ci/projects.json";
+  f.write(added, graph);
+  const head = f.save("new manifest location");
+  f.git("checkout", "-q", f.base);
+  const report = f.report(f.base, head, f.root, path.join(alias, added));
+  assert.equal(report.comparison.manifest, added);
   assert.equal(report.selected, 5);
 });
 

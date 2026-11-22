@@ -1,4 +1,5 @@
 import {spawnSync} from "node:child_process";
+import {realpathSync} from "node:fs";
 import path from "node:path";
 import {TextDecoder} from "node:util";
 
@@ -23,10 +24,31 @@ function commit(ref) {
   return git(["rev-parse", "--verify", "--end-of-options", ref + "^{commit}"]).toString("ascii").trim();
 }
 
+function canonicalDirectory(dir) {
+  // A directory present in the requested commit can be missing from this checkout.
+  try {
+    return realpathSync.native(dir);
+  } catch (error) {
+    const parent = path.dirname(dir);
+    if (error.code !== "ENOENT" || parent === dir) throw error;
+    return path.join(canonicalDirectory(parent), path.basename(dir));
+  }
+}
+
+function outside(relative) {
+  return !relative || relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative);
+}
+
 export function readPullRequest(manifestPath, baseRef, headRef) {
   const root = utf8.decode(git(["rev-parse", "--show-toplevel"])).replace(/\r?\n$/, "");
-  const relative = path.relative(root, path.resolve(manifestPath));
-  if (!relative || relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative))
+  const absolute = path.resolve(manifestPath);
+  let relative = path.relative(root, absolute);
+  if (outside(relative)) {
+    // Git and Node can reach the same checkout using a junction or Windows short pathname.
+    const local = path.join(canonicalDirectory(path.dirname(absolute)), path.basename(absolute));
+    relative = path.relative(realpathSync.native(root), local);
+  }
+  if (outside(relative))
     throw new Error("In --git mode the manifest must be a path inside the repository");
   const manifestFile = relative.split(path.sep).join("/");
   const base = commit(baseRef);

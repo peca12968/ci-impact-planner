@@ -1,6 +1,7 @@
 """Write a deterministic two-platform assignment example as JSON Lines."""
 import json
 import sys
+from contextlib import nullcontext
 
 
 def generate():
@@ -15,6 +16,7 @@ def generate():
 
 
 if __name__ == "__main__":
-    with open(sys.argv[1], "w", encoding="utf-8") as stream:
+    dest = nullcontext(sys.stdout) if sys.argv[1] == "-" else open(sys.argv[1], "w", encoding="utf-8")
+    with dest as stream:
         for row in generate():
             stream.write(json.dumps(row) + "\n")

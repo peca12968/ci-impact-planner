@@ -10,7 +10,7 @@ function checkFields(value, allowed, label) {
     if (!allowed.includes(key)) throw new Error(`Unknown ${label} field: ${key}`);
 }
 
-function compilePlan(plan) {
+export function compilePlan(plan) {
   checkFields(plan, ["flag", "stages", "limits"], "plan");
   const flag = normalizeIdentifier(plan.flag);
   if (!Array.isArray(plan.stages) || plan.stages.length < 2)

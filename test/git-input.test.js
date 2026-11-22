@@ -57,6 +57,9 @@ test("selects only branch changes, reporting both sides of moves even from a nes
   assert.deepEqual(report.direct, ["docs", "web"]);
   assert.deepEqual(report.stages, [["docs", "web"], ["checkout-e2e"]]);
   assert.equal(report.selected, 3);
+  const suites = f.report("main", "feature", undefined, undefined, ["--suites"]);
+  assert.deepEqual(suites.suiteStages.map(stage => stage.projects), report.stages);
+  assert.deepEqual(suites.suiteStages.map(stage => stage.manifest.files.length), [3, 1]);
   const detail = f.report("main", "feature", path.join(f.root, "apps", "docs"), "graph.json", ["--why", "checkout-e2e"]);
   assert.deepEqual(detail, {...report, why: {
     project: "checkout-e2e", selected: true, fullReasons: [],

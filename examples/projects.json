@@ -1,9 +1,22 @@
 {
+  "setup_ms": {"unit": 0, "database": 30, "browser": 30},
   "projects": [
-    {"name":"contracts", "dir":"packages/contracts", "dependencies":[]},
-    {"name":"api", "dir":"apps/api", "dependencies":["contracts"]},
-    {"name":"web", "dir":"apps/web", "dependencies":["contracts"]},
-    {"name":"checkout-e2e", "dir":"tests/checkout", "dependencies":["api","web"]},
-    {"name":"docs", "dir":"apps/docs", "dependencies":[]}
+    {"name":"contracts", "dir":"packages/contracts", "dependencies":[], "tests":[
+      {"path":"packages/contracts/test_schema.py", "fixture":"unit", "fallback_ms":5}
+    ]},
+    {"name":"api", "dir":"apps/api", "dependencies":["contracts"], "tests":[
+      {"path":"apps/api/test_orders.py", "fixture":"database", "fallback_ms":8},
+      {"path":"apps/api/test_receipts.py", "fixture":"database", "fallback_ms":6}
+    ]},
+    {"name":"web", "dir":"apps/web", "dependencies":["contracts"], "tests":[
+      {"path":"apps/web/test_home.py", "fixture":"browser", "fallback_ms":7},
+      {"path":"apps/web/test_cart.py", "fixture":"browser", "fallback_ms":5}
+    ]},
+    {"name":"checkout-e2e", "dir":"tests/checkout", "dependencies":["api","web"], "tests":[
+      {"path":"tests/checkout/test_flow.py", "fixture":"browser", "fallback_ms":9}
+    ]},
+    {"name":"docs", "dir":"apps/docs", "dependencies":[], "tests":[
+      {"path":"apps/docs/test_links.py", "fixture":"unit", "fallback_ms":4}
+    ]}
   ]
 }

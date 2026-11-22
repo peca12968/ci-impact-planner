@@ -1,4 +1,4 @@
-function relativePath(value) {
+export function relativePath(value) {
   if (typeof value !== "string" || !value || value.includes("\0"))
     throw new Error("Expected a nonempty relative path");
   if (value.startsWith("/") || value.includes("\\") || /^[A-Za-z]:/.test(value))

@@ -3,6 +3,23 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  suite-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: peca12968/suite-balance
+          ref: 995bdcef3dbfdba4d2db23e2b65d5e7e514fcd0d
+          path: suite-balance
+          persist-credentials: false
+      - run: python examples/balance_stages.py suite-balance/suite_balance.py
   verify:
     runs-on: ${{ matrix.os }}
     strategy:

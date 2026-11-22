@@ -15,6 +15,23 @@ node cli.js examples/projects.json package-lock.json
 
 範例包含五個專案。修改共用的 `contracts` 時，第一階段測 contracts，第二階段平行測 api 與 web，第三階段測 checkout-e2e。這次選中 4 個專案，獨立的 docs 可以略過。只改 web 時選中 2 個。變更根目錄鎖檔時，5 個全部重測。
 
+## 按相依順序分配測試檔
+
+加上 `--suites` 可把受影響專案展開成測試檔。每個 `suiteStages` 元素保留同一階段的專案名稱，並附上一份可以直接交給 Suite Balance 的 `manifest`。實際執行時，同階段內的工作者可以平行跑，全部通過後再啟動下一階段。清單需在每個專案的 `tests` 列出該目錄下的測試檔、使用的環境及預估毫秒數，並在最外層的 `setup_ms` 設定各環境的啟動成本。CI 應隨測試檔增刪更新清單。
+
+```sh
+node cli.js --suites examples/projects.json packages/contracts/schema.json
+node cli.js --suites examples/projects.json --git origin/main HEAD
+```
+
+共用契約改動會選取 4 個專案的 6 個檔案，略過獨立的 docs。將範例交給兩個工作者，契約、API 與網頁、結帳端對端測試三個階段的預估工時依序為 5、44、39 毫秒。逐檔輪流分配的總預估工時為 119 毫秒，計入共用環境啟動成本後選出的分配為 88 毫秒。這些數字來自範例設定。可用下列指令重現，最後一行會呼叫兩套 CLI 並核對所有選中檔案的分配。
+
+```sh
+git clone https://github.com/peca12968/suite-balance.git ../suite-balance
+git -C ../suite-balance checkout 995bdcef3dbfdba4d2db23e2b65d5e7e514fcd0d
+python examples/balance_stages.py ../suite-balance/suite_balance.py
+```
+
 ## 為什麼會跑這個測試？
 
 在清單路徑前加上 `--why 專案名稱`，可追查某項測試與本次變更的關係。下例同時修改共用契約、API 稅額計算與操作手冊。五個專案都會被選中，其中有兩個變更來源會觸發結帳測試。

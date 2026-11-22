@@ -102,6 +102,57 @@ class ContractTests(unittest.TestCase):
                 self.assertFalse(result.stdout)
                 self.assertIn("contract error", result.stderr)
 
+    def test_all_bounded_array_pairs(self):
+        item_types = [{"type": "integer", "minimum": 0, "maximum": 1},
+                      {"type": "string", "enum": ["A"]}, {"type": "boolean"}]
+        shapes = [{"type": "array", "items": item, "minItems": low, "maxItems": high}
+                  for item in item_types for low in range(3) for high in range(low, 4)]
+        universe = [list(values) for length in range(4)
+                    for values in itertools.product([0, 1, "A", True, False], repeat=length)]
+        accepted = []
+        for schema in shapes:
+            validate = Draft202012Validator(schema).is_valid
+            accepted.append({i for i, value in enumerate(universe) if validate(value)})
+        for i, j in itertools.product(range(len(shapes)), repeat=2):
+            with self.subTest(source=i, target=j):
+                report = compare(shapes[i], shapes[j])
+                self.assertEqual(report["compatible"], accepted[i] <= accepted[j])
+                self.assert_witnesses(shapes[i], shapes[j], report)
+
+    def test_batch_request_cli_and_pointer(self):
+        old, new = [ROOT / "examples" / f"batch-v{i}.json" for i in (1, 2)]
+        result = cli(old, new)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual([(f["path"], f["reason"], len(f["payload"]["lines"])) for f in report["findings"]],
+                         [("/lines", "too-few-items", 1), ("/lines", "too-many-items", 3),
+                          ("/lines/0/qty", "above-maximum", 2)])
+        self.assertEqual(report["findings"][-1]["payload"], {"lines": [{"qty": 6}, {"qty": 1}]})
+        self.assert_witnesses(json.loads(old.read_text()), json.loads(new.read_text()), report)
+        self.assertEqual(cli(old, new, "--direction", "response").returncode, 0)
+        limited = cli(old, new, "--max-array-items", "5")
+        self.assertEqual(limited.returncode, 2)
+        self.assertEqual(limited.stdout, "")
+
+    def test_unbounded_nested_arrays_and_symbolic_lengths(self):
+        huge = {"type": "array", "items": {"type": "null"}, "minItems": 10**80}
+        self.assertTrue(compare(huge, huge)["compatible"])
+        with self.assertRaisesRegex(ValueError, "max-array-items"):
+            compare(huge, {"type": "null"})
+        source = {"type": "array", "minItems": 2, "items": {
+            "type": "array", "minItems": 2, "items": {"type": "integer"}}}
+        target = {"type": "array", "items": {"type": "array", "items": {"type": "null"}}}
+        result = compare(source, target, max_array_items=6)
+        self.assertEqual(result["findings"][0]["path"], "/0/0")
+        self.assert_witnesses(source, target, result)
+        with self.assertRaisesRegex(ValueError, "max-array-items"):
+            compare(source, target, max_array_items=5)
+        empty = {"type": "array", "maxItems": 0, "items": {"type": "boolean"}}
+        self.assertTrue(compare(empty, target, max_array_items=0)["compatible"])
+        for extra in [{"maxItems": True}, {"minItems": -1}, {"minItems": 3, "maxItems": 2}, {"uniqueItems": True}]:
+            with self.assertRaises(ValueError):
+                compare({**empty, **extra}, target)
+
 
 if __name__ == "__main__":
     unittest.main()

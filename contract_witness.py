@@ -1,5 +1,6 @@
 """Construct payloads that one revision accepts and the other rejects."""
 import argparse
+from dataclasses import dataclass
 import json
 from pathlib import Path
 import sys
@@ -8,6 +9,7 @@ import sys
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 KEYWORDS = {
     "object": {"properties", "required", "additionalProperties"},
+    "array": {"items", "minItems", "maxItems"},
     "string": {"enum"},
     "integer": {"minimum", "maximum"},
     "boolean": set(),
@@ -46,6 +48,14 @@ def validate(schema, path=""):
                 "required names must be unique and declared")
         for key, child in fields.items():
             validate(child, pointer(path + "/properties", key))
+    elif kind == "array":
+        require(isinstance(schema.get("items"), dict), "array needs a single items schema")
+        for key in ("minItems", "maxItems"):
+            require(key not in schema or type(schema[key]) is int and schema[key] >= 0,
+                    f"{key} must be a nonnegative integer literal")
+        require("maxItems" not in schema or schema.get("minItems", 0) <= schema["maxItems"],
+                "empty array length interval")
+        validate(schema["items"], path + "/items")
     elif kind == "integer":
         for key in ("minimum", "maximum"):
             require(key not in schema or type(schema[key]) is int, f"{key} must be an integer literal")
@@ -66,10 +76,24 @@ def clamp(value, schema):
     return value
 
 
+@dataclass(frozen=True)
+class ArrayWitness:
+    length: int
+    first: object
+    rest: object
+
+
+def array_example(schema, length):
+    item = example(schema["items"]) if length else None
+    return ArrayWitness(length, item, item)
+
+
 def example(schema):
     match schema["type"]:
         case "object":
             return {key: example(schema["properties"][key]) for key in sorted(schema.get("required", []))}
+        case "array":
+            return array_example(schema, schema.get("minItems", 0))
         case "string":
             return min(schema.get("enum", [""]))
         case "integer":
@@ -98,6 +122,17 @@ def differences(source, target, path=""):
             else:
                 for where, reason, value in differences(child, receivers[key], location):
                     yield where, reason, {**base, key: value}
+    elif kind == "array":
+        minimum, maximum = source.get("minItems", 0), source.get("maxItems")
+        lower, upper = target.get("minItems", 0), target.get("maxItems")
+        if minimum < lower:
+            yield path, "too-few-items", array_example(source, minimum)
+        if upper is not None and (maximum is None or maximum > upper):
+            yield path, "too-many-items", array_example(source, max(minimum, upper + 1))
+        length = max(1, minimum, lower)
+        if (maximum is None or length <= maximum) and (upper is None or length <= upper):
+            for where, reason, first in differences(source["items"], target["items"], path + "/0"):
+                yield where, reason, ArrayWitness(length, first, example(source["items"]))
     elif kind == "integer":
         if "minimum" in target:
             candidate = clamp(target["minimum"] - 1, source)
@@ -120,13 +155,28 @@ def differences(source, target, path=""):
             yield path, "enum-restricted", candidate
 
 
-def compare(old, new, direction="request"):
+def compare(old, new, direction="request", *, max_array_items=10000):
     if direction not in {"request", "response"}:
         raise ValueError("expected request or response")
     for schema in (old, new):
         validate(schema)
     source, target = (old, new) if direction == "request" else (new, old)
-    findings = [{"path": path, "reason": reason, "payload": value}
+    if type(max_array_items) is not int or max_array_items < 0:
+        raise ValueError("max-array-items must be a nonnegative integer")
+    remaining = max_array_items
+
+    def materialize(value):
+        nonlocal remaining
+        if isinstance(value, ArrayWitness):
+            if value.length > remaining:
+                raise ValueError(f"witness output exceeds --max-array-items {max_array_items}")
+            remaining -= value.length
+            return [materialize(value.first if i == 0 else value.rest) for i in range(value.length)]
+        if isinstance(value, dict):
+            return {key: materialize(child) for key, child in value.items()}
+        return value
+
+    findings = [{"path": path, "reason": reason, "payload": materialize(value)}
                 for path, reason, value in differences(source, target)]
     return {"direction": direction, "compatible": not findings, "findings": findings}
 
@@ -152,9 +202,10 @@ def main():
     parser.add_argument("old", type=Path)
     parser.add_argument("new", type=Path)
     parser.add_argument("--direction", choices=["request", "response"], default="request")
+    parser.add_argument("--max-array-items", type=int, default=10000, help="total array entries across output witnesses")
     args = parser.parse_args()
     try:
-        report = compare(read_schema(args.old), read_schema(args.new), args.direction)
+        report = compare(read_schema(args.old), read_schema(args.new), args.direction, max_array_items=args.max_array_items)
     except (ValueError, RecursionError) as error:
         parser.exit(2, f"contract error: {error}\n")
     print(json.dumps(report, indent=2))

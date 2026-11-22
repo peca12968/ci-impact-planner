@@ -1,0 +1,8 @@
+{
+  "type": "object", "additionalProperties": false, "required": ["lines"],
+  "properties": {"lines": {
+    "type": "array", "minItems": 2, "maxItems": 2,
+    "items": {"type": "object", "additionalProperties": false, "required": ["qty"],
+              "properties": {"qty": {"type": "integer", "minimum": 1, "maximum": 5}}}
+  }}
+}

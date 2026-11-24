@@ -95,8 +95,21 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-需要 Node.js 22 以上。JavaScript 與獨立的 [Python 參考實作](reference.py)各自核對 [8 組固定測試向量](vectors.json)，包含組合字元、引號、換行、中文與 emoji。單元測試驗證門檻邊界、擴量穩定性、反向回退及版本權重變動。Playwright 在桌面及手機寬度驗證鍵盤操作、名單、單一帳號查詢與輸入錯誤。[CI 工作流程](.github/workflows/ci.yml)
+需要 Node.js 22 以上。JavaScript 與獨立的 [Python 參考實作](reference.py)各自核對 [8 組固定測試向量](vectors.json)，包含組合字元、引號、換行、中文與 emoji。單元測試驗證門檻邊界、擴量穩定性、反向回退及版本權重變動。Playwright 在桌面及手機寬度驗證鍵盤操作、名單、單一帳號查詢與輸入錯誤。[CI 工作流程](.github/workflows/system.yml)
 
 **履歷用語**　以 JavaScript 實作多階段功能發布檢查，按權重區間精確計算一億種桶號組合的加入、退出與版本切換，並讓 CI 檢查整段發布的影響上限。
 
 本專案為 AI 輔助開發的作品集示範。
+
+[同庫模組與整合測試](modules/README.md)
+
+## 一起核對分流與曝光
+
+階段稽核用同一份紀錄核對每個帳號的應得版本，並針對實際曝光做比例檢定。兩個帳號收到的版本對調時，整體仍是一比一，逐人核對會找出兩筆差異。以下演練也重跑修正後的紀錄。
+
+```sh
+python -m pip install -r modules/exposure-audit/requirements.txt
+node examples/stage-audit.mjs
+```
+
+自己的紀錄可用 `node stage-audit.mjs PLAN.json STAGE EXPOSURE-PLAN.json EVENTS.json`。階段需有兩個版本，第一個是對照組，第二個是實驗組。曝光計畫預先宣告 `strata` 與 `treatment_probability`，機率應對應該階段實驗組的權重。每個事件沿用分派欄位，另填 `event_id` 和 `stratum`。關閉功能的 `null` 決策只參與逐人核對。發現差異回傳 1，資料或執行錯誤回傳 2。

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { compilePlan } from "./web/plan.js";
 import { normalizeIdentifier, subjectBuckets } from "./web/rollout.js";
 
@@ -7,7 +8,7 @@ function readJson(path) {
   return JSON.parse(text);
 }
 
-async function reconcile(plan, decisions) {
+export async function reconcile(plan, decisions) {
   const { flag, stages } = compilePlan(plan);
   if (!Array.isArray(decisions)) throw new Error("Expected an array of decisions");
   const observed = new Map(stages.map(stage => [stage.name, new Map()]));
@@ -48,13 +49,17 @@ async function reconcile(plan, decisions) {
   return report;
 }
 
-try {
-  const args = process.argv.slice(2);
-  if (args.length !== 2) throw new Error("Usage: node reconcile.js PLAN.json DECISIONS.json");
-  const report = await reconcile(readJson(args[0]), readJson(args[1]));
-  console.log(JSON.stringify(report, null, 2));
-  process.exitCode = report.mismatched || !report.checked ? 1 : 0;
-} catch (error) {
-  console.error(error.message);
-  process.exitCode = 2;
+async function main() {
+  try {
+    const args = process.argv.slice(2);
+    if (args.length !== 2) throw new Error("Usage: node reconcile.js PLAN.json DECISIONS.json");
+    const report = await reconcile(readJson(args[0]), readJson(args[1]));
+    console.log(JSON.stringify(report, null, 2));
+    process.exitCode = report.mismatched || !report.checked ? 1 : 0;
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 2;
+  }
 }
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) await main();

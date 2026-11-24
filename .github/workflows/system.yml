@@ -1,0 +1,52 @@
+name: Verify rollout-lab system
+'on':
+- push
+- pull_request
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+        cache: npm
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - run: npm ci
+    - run: python reference.py
+    - run: npm test
+    - run: node plan.js examples/checkout-plan.json demo-0090
+    - run: python -m pip install -r modules/exposure-audit/requirements.txt
+    - run: node examples/stage-audit.mjs
+    - run: npx playwright install --with-deps chromium
+    - run: npm run test:e2e
+  exposure-audit-verify:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+        cache: pip
+        cache-dependency-path: modules/exposure-audit/requirements.txt
+    - run: python -m pip install -r requirements.txt
+    - run: python -m unittest -v
+    - uses: actions/checkout@v7
+      with:
+        repository: peca12968/wheel-witness
+        ref: 3cc291b20b147e53544504454aff6f74acced583
+        path: modules/exposure-audit/comparator
+    - run: python -m pip install flit_core==3.12.0
+    - run: python verify_install.py comparator
+    defaults:
+      run:
+        working-directory: modules/exposure-audit

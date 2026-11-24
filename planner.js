@@ -95,7 +95,25 @@ function explain(projects, target, filesByOwner, report) {
   return {project: target, selected: report.stages.some(stage => stage.includes(target)), causes, fullReasons};
 }
 
-export function plan(manifest, changedFiles, fullReason = null, why = null) {
+function requiredBuilds(projects, dependents, testProjects) {
+  const needed = new Set(testProjects);
+  const queue = [...needed];
+  for (let i = 0; i < queue.length; i++) {
+    for (const dependency of projects.get(queue[i]).dependencies) {
+      if (needed.has(dependency)) continue;
+      needed.add(dependency);
+      queue.push(dependency);
+    }
+  }
+  return {
+    stages: layers(projects, dependents, needed),
+    buildOnly: [...needed].filter(name => !testProjects.has(name)).sort().map(project => ({
+      project, requiredBy: dependents.get(project).filter(name => needed.has(name)).sort()
+    }))
+  };
+}
+
+export function plan(manifest, changedFiles, fullReason = null, why = null, {buildPlan = false} = {}) {
   const {projects, dependents} = inspect(manifest);
   const all = new Set(projects.keys());
   const complete = layers(projects, dependents, all);
@@ -137,5 +155,6 @@ export function plan(manifest, changedFiles, fullReason = null, why = null) {
     total: projects.size
   };
   if (why !== null) report.why = explain(projects, why, filesByOwner, report);
+  if (buildPlan) report.buildPlan = requiredBuilds(projects, dependents, full ? all : affected);
   return report;
 }

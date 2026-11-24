@@ -33,6 +33,25 @@ git worktree add --detach ../suite-balance-verified 995bdcef3dbfdba4d2db23e2b65d
 python examples/balance_stages.py ../suite-balance-verified/suite_balance.py
 ```
 
+## 先建置測試所需的上游
+
+在清單路徑前加 `--build-plan`，可取得測試所需的建置順序。它也能搭配 `--suites`、`--why` 或任一 Git 輸入方式。下例即使只改網頁，結帳測試仍需 API 已完成建置。
+
+```sh
+node cli.js --build-plan --suites examples/projects.json apps/web/button.ts
+node cli.js --build-plan examples/projects.json --push BEFORE AFTER
+```
+
+| 階段 | 建置或還原產物 | 執行測試 |
+| --- | --- | --- |
+| 第 1 階段 | contracts | web |
+| 第 2 階段 | api、web | checkout-e2e |
+| 第 3 階段 | checkout-e2e | — |
+
+兩欄各自按順序執行。先完成左側全部建置階段，再依右側階段執行測試。`buildPlan.stages` 含所有要測的專案及其遞迴上游。`buildPlan.buildOnly` 列出只需建置的專案及直接使用其產物的 `requiredBy`，讓維護者追查前置依賴。本例 `api` 被 `checkout-e2e` 使用，`contracts` 同時被 `api` 和 `web` 使用。`stages`、`selected` 與 `suiteStages` 沿用原先的測試選擇。建置、快取還原與測試命令各由 CI 提供。
+
+無變更時，兩套階段皆為空。遇到全量測試時，每個專案都包含在建置與測試內。以 64 張四專案相依圖和每張圖的 16 種變更組合，核對測試集合、前置建置與階段順序。Git 整合測試另驗證採用推送後的清單，即使工作目錄中的清單已經改動。[範例輸出](examples/build-plan-demo.json) · [依賴閉包驗證](test/build-plan.test.js)
+
 ## 為什麼會跑這個測試？
 
 在清單路徑前加上 `--why 專案名稱`，可追查某項測試與本次變更的關係。下例同時修改共用契約、API 稅額計算與操作手冊。五個專案都會被選中，其中有兩個變更來源會觸發結帳測試。
@@ -112,7 +131,7 @@ node cli.js --why checkout-e2e examples/projects.json --worktree
 
 - 以反向相依圖沿途展開受影響的專案，再以拓撲排序建立測試階段。同階段使用穩定的名稱順序，輸入檔案順序不影響結果。
 - 清單是專案相依關係的來源。請在共用設定或產生器影響下游時同步更新清單。工具規劃測試範圍，實際測試命令及測試環境由使用此工具的 CI 提供。
-- 僅支援 UTF-8 Git 相對路徑，專案目錄須互不重疊。適合已能獨立執行各套件測試的 monorepo。若測試前必須先編譯未變更的上游，應另外安排建置或還原其快取。
+- 僅支援 UTF-8 Git 相對路徑，專案目錄須互不重疊。適合已能獨立執行各套件測試的 monorepo。測試需要未變更的上游產物時，可用 `--build-plan` 安排建置或還原快取。
 
 [測試](test/planner.test.js)涵蓋菱形相依、循環、無歸屬路徑、穩定排序、CLI 輸入及失敗處理。[GitHub Actions](.github/workflows/system.yml)在 Linux 與 Windows 的 Node.js 22、24 執行測試與 Git 串接示範。
 

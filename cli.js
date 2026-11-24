@@ -3,9 +3,11 @@ import {plan} from "./planner.js";
 import {parseGitPaths, readPullRequest, readPush, readWorktree} from "./git-input.js";
 import {suiteStages} from "./suite-stages.js";
 
-const usage = "Usage: node cli.js [--why PROJECT | --suites] MANIFEST [--git BASE HEAD | --push BEFORE AFTER | --worktree | --stdin0 | -- FILE ... | FILE ...]";
+const usage = "Usage: node cli.js [--build-plan] [--why PROJECT | --suites] MANIFEST [--git BASE HEAD | --push BEFORE AFTER | --worktree | --stdin0 | -- FILE ... | FILE ...]";
 try {
   const input = process.argv.slice(2);
+  const buildPlan = input[0] === "--build-plan";
+  if (buildPlan) input.shift();
   const suites = input[0] === "--suites";
   let why = null;
   if (suites) input.shift();
@@ -32,7 +34,7 @@ try {
     }
     manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   }
-  const report = plan(manifest, files, fullReason, why);
+  const report = plan(manifest, files, fullReason, why, {buildPlan});
   if (comparison) report.comparison = comparison;
   if (suites) report.suiteStages = suiteStages(manifest, report.stages);
   console.log(JSON.stringify(report, null, 2));

@@ -1,0 +1,113 @@
+[
+  {
+    "scenario": "web",
+    "file": "apps/web/button.ts",
+    "mode": "affected",
+    "buildPlan": {
+      "stages": [
+        [
+          "contracts"
+        ],
+        [
+          "api",
+          "web"
+        ],
+        [
+          "checkout-e2e"
+        ]
+      ],
+      "buildOnly": [
+        {
+          "project": "api",
+          "requiredBy": [
+            "checkout-e2e"
+          ]
+        },
+        {
+          "project": "contracts",
+          "requiredBy": [
+            "api",
+            "web"
+          ]
+        }
+      ]
+    },
+    "stages": [
+      [
+        "web"
+      ],
+      [
+        "checkout-e2e"
+      ]
+    ],
+    "testFiles": [
+      "apps/web/test_home.py",
+      "apps/web/test_cart.py",
+      "tests/checkout/test_flow.py"
+    ]
+  },
+  {
+    "scenario": "docs",
+    "file": "apps/docs/guide.md",
+    "mode": "affected",
+    "buildPlan": {
+      "stages": [
+        [
+          "docs"
+        ]
+      ],
+      "buildOnly": []
+    },
+    "stages": [
+      [
+        "docs"
+      ]
+    ],
+    "testFiles": [
+      "apps/docs/test_links.py"
+    ]
+  },
+  {
+    "scenario": "global",
+    "file": "package-lock.json",
+    "mode": "full",
+    "buildPlan": {
+      "stages": [
+        [
+          "contracts",
+          "docs"
+        ],
+        [
+          "api",
+          "web"
+        ],
+        [
+          "checkout-e2e"
+        ]
+      ],
+      "buildOnly": []
+    },
+    "stages": [
+      [
+        "contracts",
+        "docs"
+      ],
+      [
+        "api",
+        "web"
+      ],
+      [
+        "checkout-e2e"
+      ]
+    ],
+    "testFiles": [
+      "packages/contracts/test_schema.py",
+      "apps/docs/test_links.py",
+      "apps/api/test_orders.py",
+      "apps/api/test_receipts.py",
+      "apps/web/test_home.py",
+      "apps/web/test_cart.py",
+      "tests/checkout/test_flow.py"
+    ]
+  }
+]

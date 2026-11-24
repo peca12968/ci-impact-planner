@@ -88,6 +88,26 @@ test("worktree planning keeps both sides of a move and distinguishes staged, uns
   }
 });
 
+test("push uses committed build prerequisites and keeps their suites out of scope", t => {
+  const f = fixture(t);
+  f.write("apps/web/button.ts", "new button");
+  const after = f.save("web-only change");
+  const altered = JSON.parse(graph);
+  altered.projects.find(project => project.name === "checkout-e2e").dependencies = ["web"];
+  f.write(manifest, JSON.stringify(altered));
+  const result = f.push(f.base, after, undefined, undefined, ["--build-plan", "--suites"]);
+  assert.equal(result.status, 0, result.stderr);
+  const plan = JSON.parse(result.stdout);
+  assert.deepEqual(plan.stages, [["web"], ["checkout-e2e"]]);
+  assert.deepEqual(plan.buildPlan.stages, [["contracts"], ["api", "web"], ["checkout-e2e"]]);
+  assert.deepEqual(plan.buildPlan.buildOnly, [
+    {project: "api", requiredBy: ["checkout-e2e"]}, {project: "contracts", requiredBy: ["api", "web"]}
+  ]);
+  assert.deepEqual(plan.suiteStages.map(stage => stage.projects), plan.stages);
+  assert.equal(JSON.parse(readFileSync(path.join(f.root, manifest))).projects.find(project => project.name === "checkout-e2e")
+    .dependencies.length, 1);
+});
+
 test("worktree changes to the graph take the conservative path, including ignored manifests", t => {
   const f = fixture(t);
   const updated = JSON.parse(graph);

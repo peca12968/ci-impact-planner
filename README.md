@@ -27,9 +27,8 @@ node cli.js --suites examples/projects.json --git origin/main HEAD
 共用契約改動會選取 4 個專案的 6 個檔案，略過獨立的 docs。將範例交給兩個工作者，契約、API 與網頁、結帳端對端測試三個階段的預估工時依序為 5、44、39 毫秒。逐檔輪流分配的總預估工時為 119 毫秒，計入共用環境啟動成本後選出的分配為 88 毫秒。這些數字來自範例設定。可用下列指令重現，最後一行會呼叫兩套 CLI 並核對所有選中檔案的分配。
 
 ```sh
-git clone https://github.com/peca12968/ci-impact-planner.git ../suite-balance
-git -C ../suite-balance checkout 995bdcef3dbfdba4d2db23e2b65d5e7e514fcd0d
-python examples/balance_stages.py ../suite-balance/suite_balance.py
+git worktree add --detach ../suite-balance-verified 995bdcef3dbfdba4d2db23e2b65d5e7e514fcd0d
+python examples/balance_stages.py ../suite-balance-verified/suite_balance.py
 ```
 
 ## 為什麼會跑這個測試？

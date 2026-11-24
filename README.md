@@ -27,7 +27,7 @@ node cli.js --suites examples/projects.json --git origin/main HEAD
 共用契約改動會選取 4 個專案的 6 個檔案，略過獨立的 docs。將範例交給兩個工作者，契約、API 與網頁、結帳端對端測試三個階段的預估工時依序為 5、44、39 毫秒。逐檔輪流分配的總預估工時為 119 毫秒，計入共用環境啟動成本後選出的分配為 88 毫秒。這些數字來自範例設定。可用下列指令重現，最後一行會呼叫兩套 CLI 並核對所有選中檔案的分配。
 
 ```sh
-git clone https://github.com/peca12968/suite-balance.git ../suite-balance
+git clone https://github.com/peca12968/ci-impact-planner.git ../suite-balance
 git -C ../suite-balance checkout 995bdcef3dbfdba4d2db23e2b65d5e7e514fcd0d
 python examples/balance_stages.py ../suite-balance/suite_balance.py
 ```
@@ -84,8 +84,10 @@ git diff --no-renames --name-only -z BASE HEAD | node cli.js examples/projects.j
 - 清單是專案相依關係的來源。請在共用設定或產生器影響下游時同步更新清單。工具規劃測試範圍，實際測試命令及測試環境由使用此工具的 CI 提供。
 - 僅支援 UTF-8 Git 相對路徑，專案目錄須互不重疊。適合已能獨立執行各套件測試的 monorepo。若測試前必須先編譯未變更的上游，應另外安排建置或還原其快取。
 
-[測試](test/planner.test.js)涵蓋菱形相依、循環、無歸屬路徑、穩定排序、CLI 輸入及失敗處理。[GitHub Actions](.github/workflows/ci.yml)在 Linux 與 Windows 的 Node.js 22、24 執行測試與 Git 串接示範。
+[測試](test/planner.test.js)涵蓋菱形相依、循環、無歸屬路徑、穩定排序、CLI 輸入及失敗處理。[GitHub Actions](.github/workflows/system.yml)在 Linux 與 Windows 的 Node.js 22、24 執行測試與 Git 串接示範。
 
 **履歷用語**　以 Node.js 與 Git 實作 monorepo 測試規劃器，從 PR 檔案變更追蹤至下游測試，列出每個變更來源的最短相依路徑，並以 64 張四專案有向無環圖逐一核對路徑選擇。
 
 本專案為 AI 輔助開發的作品集示範。範例數字代表測試計畫選中的專案數。
+
+[同庫模組與整合測試](modules/README.md)

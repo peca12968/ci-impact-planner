@@ -1,0 +1,70 @@
+name: Verify ci-impact-planner system
+'on':
+- push
+- pull_request
+permissions:
+  contents: read
+jobs:
+  suite-integration:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: actions/checkout@v4
+      with:
+        ref: 995bdcef3dbfdba4d2db23e2b65d5e7e514fcd0d
+        path: suite-balance
+        persist-credentials: false
+    - run: python examples/balance_stages.py suite-balance/suite_balance.py
+  verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        node:
+        - '22'
+        - '24'
+        os:
+        - ubuntu-latest
+        - windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node }}
+    - run: npm test
+    - run: npm run demo
+    - name: Exercise Git-to-planner pipeline
+      shell: bash
+      run: |-
+        set -o pipefail
+        fixture=$(mktemp -d)
+        git init -q "$fixture"
+        mkdir -p "$fixture/apps/docs" "$fixture/apps/web"
+        echo "example" > "$fixture/apps/docs/example.txt"
+        git -C "$fixture" add .
+        git -C "$fixture" -c user.name=Fixture -c user.email=fixture@example.invalid commit -qm "Fixture"
+        git -C "$fixture" mv apps/docs/example.txt apps/web/example.txt
+        git -C "$fixture" diff --cached --no-renames --name-only -z | node cli.js examples/projects.json --stdin0 > "$RUNNER_TEMP/impact.json"
+        node -e "const p=require(process.argv[1]); if(p.selected !== 3 || p.direct.join(',') !== 'docs,web') process.exit(1)" "$RUNNER_TEMP/impact.json"
+  suite-balance-verify:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - run: python -m pip install pytest==9.2.0
+    - run: python pytest_drill.py
+    defaults:
+      run:
+        working-directory: modules/suite-balance

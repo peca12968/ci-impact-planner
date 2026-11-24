@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
     "demo": "node cli.js examples/projects.json packages/contracts/schema.json"
   },
   "engines": {"node": ">=22"}

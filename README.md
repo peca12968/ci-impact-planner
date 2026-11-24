@@ -70,6 +70,25 @@ JSON 的 `comparison` 記錄兩個輸入版本、共同祖先 SHA 與清單路�
 
 ### 比較兩個指定快照或傳入檔案清單
 
+`--push BEFORE AFTER` 適用於分支更新後的 CI，直接比較推送事件提供的兩個完整 commit SHA。即使強制推送改寫歷史，舊提交獨有的檔案被移除時，也會納入對應的專案與下游測試。清單固定讀自 `AFTER`，報告的 `comparison` 記錄實際使用的兩個 SHA。
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- name: Plan tests after a push
+  if: github.event_name == 'push' && !github.event.deleted
+  shell: bash
+  env:
+    BEFORE: ${{ github.event.before }}
+    AFTER: ${{ github.event.after }}
+  run: node cli.js --suites examples/projects.json --push "$BEFORE" "$AFTER"
+```
+
+首次建立分支時，事件的 `BEFORE` 為全零，工具會以 `new_ref` 選取全部專案。改寫歷史後，若本機已找不到 `BEFORE`，工具也會以 `before_unavailable` 選取全部專案。若不存在 `AFTER` 提交、推送刪除分支或清單無法解析，結束碼為 2，stdout 保持空白。
+
+[可重跑的 Git 測試](test/git-input.test.js)會建立兩條分岔歷史。新版本把文件從 docs 搬到 web，PR 模式選取 3 個專案。當新版本取代舊分支，舊分支獨有的契約檔案也隨之移除，推送模式將 contracts 與 api 納入，合計 5 個專案。[範例結果](examples/push-demo.json)
+
 在具有 Git 歷史的 Bash 環境中執行下列命令。用實際基準與目標提交取代 BASE 和 HEAD。關閉 rename 偵測可同時保留舊路徑及新路徑，跨專案移動時會把兩側都納入。NUL 分隔可保留檔名內的空格與換行。
 
 ```bash

@@ -1,0 +1,5 @@
+{
+  "removed": "packages/contracts/legacy.json",
+  "pr_stages": [["docs", "web"], ["checkout-e2e"]],
+  "push_stages": [["contracts", "docs"], ["api", "web"], ["checkout-e2e"]]
+}

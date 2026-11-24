@@ -11,7 +11,7 @@ const cli = fileURLToPath(new URL("../cli.js", import.meta.url));
 const graph = readFileSync(new URL("../examples/projects.json", import.meta.url), "utf8");
 const manifest = "apps/docs/graph.json";
 
-function fixture(t) {
+function fixture(t, format = "sha1") {
   const root = mkdtempSync(path.join(os.tmpdir(), "ci-impact-pr-"));
   t.after(() => rmSync(root, {recursive:true, force:true, maxRetries:3}));
   const git = (...args) => execFileSync("git", args, {cwd:root, encoding:"utf8"}).trim();
@@ -25,7 +25,7 @@ function fixture(t) {
     git("commit", "-qm", message);
     return git("rev-parse", "HEAD");
   };
-  git("init", "-q", "-b", "main");
+  git("init", "-q", "-b", "main", "--object-format=" + format);
   git("config", "user.name", "Fixture");
   git("config", "user.email", "fixture@example.invalid");
   git("config", "commit.gpgsign", "false");
@@ -33,8 +33,10 @@ function fixture(t) {
   write(manifest, graph);
   write("apps/docs/guide.txt", "checkout");
   const base = save("base");
-  const run = (baseRef, headRef, cwd = root, file = path.join(root, manifest), flags = []) =>
-    spawnSync(process.execPath, [cli, ...flags, file, "--git", baseRef, headRef], {cwd, encoding:"utf8"});
+  const compare = (mode, baseRef, headRef, cwd = root, file = path.join(root, manifest), flags = []) =>
+    spawnSync(process.execPath, [cli, ...flags, file, mode, baseRef, headRef], {cwd, encoding:"utf8"});
+  const run = (...args) => compare("--git", ...args);
+  const push = (...args) => compare("--push", ...args);
   const worktree = (cwd = root, file = path.join(root, manifest), flags = []) =>
     spawnSync(process.execPath, [cli, ...flags, file, "--worktree"], {cwd, encoding:"utf8"});
   const report = (...args) => {
@@ -42,7 +44,7 @@ function fixture(t) {
     assert.equal(result.status, 0, result.stderr);
     return JSON.parse(result.stdout);
   };
-  return {root, base, git, write, save, run, report, worktree};
+  return {root, base, git, write, save, run, report, worktree, push};
 }
 
 test("worktree planning keeps both sides of a move and distinguishes staged, unstaged and new paths", t => {
@@ -161,6 +163,77 @@ test("empty head diff is empty even when the target branch advanced", t => {
   f.write("package-lock.json", "{}");
   const main = f.save("base advanced");
   assert.equal(f.report(main, f.base).selected, 0);
+});
+
+test("push planning catches deletions left out of the PR diff during a force-push", t => {
+  const f = fixture(t);
+  const fixturePath = new URL("../examples/push-demo.json", import.meta.url);
+  const demo = JSON.parse(readFileSync(fixturePath, "utf8"));
+  f.write(demo.removed, "old contract to be removed by the force-push");
+  const before = f.save("old tip added a contract");
+  f.git("switch", "-qc", "replacement", f.base);
+  mkdirSync(path.join(f.root, "apps", "web"), {recursive:true});
+  f.git("mv", "apps/docs/guide.txt", "apps/web/user guide.txt");
+  const after = f.save("replacement tip moves the documentation");
+  f.git("checkout", "-q", before);
+  f.write(manifest, "an invalid local manifest that must be ignored");
+
+  const pr = f.report(before, after);
+  const push = f.push(before, after, undefined, undefined, ["--why", "checkout-e2e"]);
+  assert.equal(push.status, 0, push.stderr);
+  const report = JSON.parse(push.stdout);
+  assert.deepEqual(report.comparison, {source: "push", before, after, manifest});
+  assert.deepEqual(pr.stages, demo.pr_stages);
+  assert.deepEqual(report.stages, demo.push_stages);
+  assert.deepEqual(report.direct, ["contracts", "docs", "web"]);
+  assert.deepEqual(report.why.causes, [
+    {files: [demo.removed], chain: ["contracts", "api", "checkout-e2e"]},
+    {files: ["apps/web/user guide.txt"], chain: ["web", "checkout-e2e"]},
+  ]);
+  assert.equal(f.git("rev-parse", "HEAD"), before);
+});
+
+test("a newly created ref or unavailable old tip selects all suites from the AFTER commit", t => {
+  const f = fixture(t, "sha256");
+  const zero = "0".repeat(f.base.length);
+  const missing = "f".repeat(f.base.length);
+  const document = JSON.parse(graph);
+  document.projects.pop();
+  f.write(manifest, JSON.stringify(document));
+  const after = f.save("remove docs from the new test manifest");
+  f.git("checkout", "-q", f.base);
+  for (const [before, expected] of [
+    [zero, "new_ref"], [missing, "before_unavailable"], [f.base, "manifest_changed"],
+  ]) {
+    const result = f.push(before, after, undefined, undefined, ["--suites"]);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.mode, "full");
+    assert.equal(report.fullReason, expected);
+    assert.equal(report.selected, 4);
+    assert.deepEqual(report.suiteStages.map(stage => stage.projects), report.stages);
+    assert.ok(!report.stages.flat().includes("docs"));
+  }
+  const unchanged = f.push(after, after);
+  assert.equal(unchanged.status, 0, unchanged.stderr);
+  assert.deepEqual(JSON.parse(unchanged.stdout).stages, []);
+});
+
+test("deleted refs, malformed object IDs and unavailable new tips never produce test plans", t => {
+  const f = fixture(t);
+  const zero = "0".repeat(f.base.length);
+  const tree = f.git("rev-parse", "HEAD^{tree}");
+  const missing = "f".repeat(f.base.length);
+  for (const [before, after, error] of [
+    [f.base, zero, /deleted the ref/], ["HEAD", f.base, /full Git object IDs/],
+    [tree, f.base, /BEFORE must identify a commit/], [f.base, tree, /AFTER must be an available commit/],
+    [f.base, missing, /AFTER must be an available commit/],
+  ]) {
+    const result = f.push(before, after);
+    assert.equal(result.status, 2);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, error);
+  }
 });
 
 test("edits to a nested manifest select all projects from the head revision", t => {

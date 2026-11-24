@@ -1,9 +1,9 @@
 import {readFileSync} from "node:fs";
 import {plan} from "./planner.js";
-import {parseGitPaths, readPullRequest, readWorktree} from "./git-input.js";
+import {parseGitPaths, readPullRequest, readPush, readWorktree} from "./git-input.js";
 import {suiteStages} from "./suite-stages.js";
 
-const usage = "Usage: node cli.js [--why PROJECT | --suites] MANIFEST [--git BASE HEAD | --worktree | --stdin0 | -- FILE ... | FILE ...]";
+const usage = "Usage: node cli.js [--why PROJECT | --suites] MANIFEST [--git BASE HEAD | --push BEFORE AFTER | --worktree | --stdin0 | -- FILE ... | FILE ...]";
 try {
   const input = process.argv.slice(2);
   const suites = input[0] === "--suites";
@@ -16,9 +16,10 @@ try {
   const [manifestPath, ...args] = input;
   if (!manifestPath) throw new Error(usage);
   let manifest, files, fullReason, comparison;
-  if (args[0] === "--git") {
+  if (args[0] === "--git" || args[0] === "--push") {
     if (args.length !== 3) throw new Error(usage);
-    ({manifest, files, fullReason, comparison} = readPullRequest(manifestPath, args[1], args[2]));
+    const readComparison = args[0] === "--git" ? readPullRequest : readPush;
+    ({manifest, files, fullReason, comparison} = readComparison(manifestPath, args[1], args[2]));
   } else if (args[0] === "--worktree") {
     if (args.length !== 1) throw new Error(usage);
     ({manifest, files, fullReason, comparison} = readWorktree(manifestPath));

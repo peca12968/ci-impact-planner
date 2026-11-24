@@ -11,10 +11,10 @@ export function parseGitPaths(bytes) {
   return input ? input.slice(0, -1).split("\0") : [];
 }
 
-function git(args, missingBaseAllowed = false) {
-  const result = spawnSync("git", args, {maxBuffer: 32 * 1024 * 1024, windowsHide: true});
+function git(args, {emptyOnNoMatch = false, input} = {}) {
+  const result = spawnSync("git", args, {input, maxBuffer: 32 * 1024 * 1024, windowsHide: true});
   if (result.error) throw result.error;
-  if (missingBaseAllowed && result.status === 1) return Buffer.alloc(0);
+  if (emptyOnNoMatch && result.status === 1) return Buffer.alloc(0);
   if (result.status !== 0)
     throw new Error(result.stderr.toString("utf8").trim() || "Git command failed");
   return result.stdout;
@@ -53,21 +53,48 @@ function repositoryManifest(manifestPath, mode) {
   return {root, file: relative.split(path.sep).join("/")};
 }
 
+function committedManifest(revision, file) {
+  return JSON.parse(utf8.decode(git(["cat-file", "blob", revision + ":" + file])).replace(/^\uFEFF/, ""));
+}
+
+function compareSnapshots(manifest, comparison, before, after) {
+  const files = parseGitPaths(git(["diff", "--no-renames", "--no-relative", "--ignore-submodules=none",
+    "--name-only", "-z", before, after, "--"]));
+  return {manifest, files, comparison, fullReason: files.includes(comparison.manifest) ? "manifest_changed" : null};
+}
+
 export function readPullRequest(manifestPath, baseRef, headRef) {
   const {file: manifestFile} = repositoryManifest(manifestPath, "--git");
   const base = commit(baseRef);
   const head = commit(headRef);
-  const bases = git(["merge-base", "--all", base, head], true).toString("ascii").trim();
+  const bases = git(["merge-base", "--all", base, head], {emptyOnNoMatch: true}).toString("ascii").trim();
   if (!bases) throw new Error("No common ancestor available; check the refs and fetch missing history");
   const mergeBases = bases.split(/\s+/).sort();
-  const manifest = JSON.parse(utf8.decode(git(["cat-file", "blob", head + ":" + manifestFile])).replace(/^\uFEFF/, ""));
+  const manifest = committedManifest(head, manifestFile);
   const comparison = {base, head, mergeBases, manifest: manifestFile};
   if (mergeBases.length !== 1) {
     return {manifest, files: [], comparison, fullReason: "multiple_merge_bases"};
   }
-  const files = parseGitPaths(git(["diff", "--no-renames", "--no-relative", "--ignore-submodules=none",
-    "--name-only", "-z", mergeBases[0], head, "--"]));
-  return {manifest, files, comparison, fullReason: files.includes(manifestFile) ? "manifest_changed" : null};
+  return compareSnapshots(manifest, comparison, mergeBases[0], head);
+}
+
+export function readPush(manifestPath, before, after) {
+  const {file: manifestFile} = repositoryManifest(manifestPath, "--push");
+  const format = git(["rev-parse", "--show-object-format"]).toString("ascii").trim();
+  const oid = format === "sha256" ? /^[0-9a-f]{64}$/ : /^[0-9a-f]{40}$/;
+  if (!oid.test(before) || !oid.test(after)) throw new Error("Push requires full Git object IDs for BEFORE and AFTER");
+  if (/^0+$/.test(after)) throw new Error("Push deleted the ref; there is no AFTER commit to test");
+
+  const typeOf = id => git(["cat-file", "--batch-check=%(objecttype)"], {input: id + "\n"}).toString("ascii").trim();
+  if (typeOf(after) !== "commit") throw new Error("Push AFTER must be an available commit");
+  const manifest = committedManifest(after, manifestFile);
+  const comparison = {source: "push", before, after, manifest: manifestFile};
+  if (/^0+$/.test(before)) return {manifest, files: [], comparison, fullReason: "new_ref"};
+  const beforeType = typeOf(before);
+  if (beforeType === `${before} missing`)
+    return {manifest, files: [], comparison, fullReason: "before_unavailable"};
+  if (beforeType !== "commit") throw new Error("Push BEFORE must identify a commit");
+  return compareSnapshots(manifest, comparison, before, after);
 }
 
 const conflicts = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);

@@ -42,3 +42,14 @@ python /path/to/catalog_merge.py locales/zh-TW.json --review review.json --outpu
 測試走過缺鍵、空字串與兩種翻譯文字的 64 種三方組合，在 32 份混合詞條的字典上比對預期結果。另以真實 Git 合併驗證雙方同時新增檔案、整檔刪除與修改衝突、覆核過期，以及保留既有輸出。[測試](test_merge.py)
 
 本作品使用 AI 輔助開發，所有示範翻譯均為合成資料。
+
+[同庫模組與整合測試](modules/README.md)
+
+## 合併後驗證 ICU 訊息
+
+店面分支改了訂單文字，翻譯分支更新配送通知。兩筆修改可自動合併，但草稿的配送通知少了 `pickup`。整合演練會建立真實的 Git 衝突、合併兩個詞條，再用 Message Parity 檢查產出的繁中目錄。補回 `pickup` 分支後重跑即可通過。
+
+```sh
+npm ci --prefix modules/message-parity --ignore-scripts
+python icu_demo.py
+```

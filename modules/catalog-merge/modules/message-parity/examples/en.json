@@ -1,0 +1,6 @@
+{
+  "refund": "Refund: {amount, number, ::currency/TWD}.",
+  "delivery": "{mode, select, pickup {Collect at {store}.} courier {Deliver to {address}.} other {Contact support.}}",
+  "cart": "{count, plural, =0 {Your cart is empty.} one {One item in your cart.} other {# items in your cart.}}",
+  "order": "Order {id} for {name}."
+}

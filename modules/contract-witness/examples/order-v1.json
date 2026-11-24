@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["quantity", "delivery"],
+  "properties": {
+    "quantity": {"type": "integer", "minimum": 1, "maximum": 10},
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["speed"],
+      "properties": {
+        "speed": {"type": "string", "enum": ["express", "standard"]},
+        "giftMessage": {"type": "string"}
+      }
+    }
+  }
+}

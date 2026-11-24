@@ -1,0 +1,9 @@
+{
+  "name": "theme-contrast",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {"test": "node --test", "test:browsers": "node browser-check.mjs"},
+  "devDependencies": {"axe-core": "4.14.1", "playwright": "1.65.1"}
+}

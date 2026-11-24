@@ -1,0 +1,6 @@
+{
+  "refund": "退款金額為 {amount}。",
+  "delivery": "{mode, select, courier {寄至{address}。} other {請洽客服。}}",
+  "cart": "{count, plural, other {購物車有 # 件商品。}}",
+  "order": "{name}的訂單編號是 {id}。"
+}

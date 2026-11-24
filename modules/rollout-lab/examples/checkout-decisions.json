@@ -1,0 +1,8 @@
+[
+  {"flag":"checkout-layout","stage":"baseline","subject":"demo-0002","variant":"B"},
+  {"flag":"checkout-layout","stage":"baseline","subject":"café","variant":"A"},
+  {"flag":"checkout-layout","stage":"baseline","subject":"cafe\u0301","variant":"A"},
+  {"flag":"checkout-layout","stage":"baseline","subject":"demo-0001","variant":null},
+  {"flag":"checkout-layout","stage":"rebalance","subject":"café","variant":"A"},
+  {"flag":"checkout-layout","stage":"rollback","subject":"café","variant":"B"}
+]

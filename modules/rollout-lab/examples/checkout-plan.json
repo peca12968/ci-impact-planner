@@ -1,0 +1,10 @@
+{
+  "flag": "checkout-layout",
+  "stages": [
+    {"name": "baseline", "rollout": 1000, "variants": [{"name": "A", "weight": 5000}, {"name": "B", "weight": 5000}]},
+    {"name": "expand", "rollout": 2500, "variants": [{"name": "A", "weight": 5000}, {"name": "B", "weight": 5000}]},
+    {"name": "rebalance", "rollout": 2500, "variants": [{"name": "A", "weight": 8000}, {"name": "B", "weight": 2000}]},
+    {"name": "rollback", "rollout": 1000, "variants": [{"name": "A", "weight": 5000}, {"name": "B", "weight": 5000}]}
+  ],
+  "limits": {"maxEverChangedBps": 1800, "maxFinalChangedBps": 0, "maxSwitchedBpsPerStep": 800}
+}

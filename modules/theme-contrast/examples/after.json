@@ -1,0 +1,10 @@
+{
+  "tokens": {"canvas":"#fff","panel":"#1378a311","body":"#242f37","hint":"#586b7580","heading":"#777","warning":"#553321","legacy":"#999"},
+  "text": [
+    {"id":"delivery-hint","foreground":"hint","backgrounds":["canvas","panel"],"scale":"normal"},
+    {"id":"pickup-hint","foreground":"hint","backgrounds":["canvas"],"scale":"normal"},
+    {"id":"section-title","foreground":"heading","backgrounds":["canvas"],"scale":"large"},
+    {"id":"late-notice","foreground":"warning","backgrounds":["canvas","panel"],"scale":"normal"},
+    {"id":"archive-note","foreground":"legacy","backgrounds":["canvas"],"scale":"normal"}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "message-parity",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Check ICU message contracts across translated catalogs.",
+  "scripts": {
+    "test": "node --test",
+    "demo": "node demo.js"
+  },
+  "dependencies": {
+    "@formatjs/icu-messageformat-parser": "3.5.23",
+    "intl-messageformat": "12.2.0"
+  }
+}

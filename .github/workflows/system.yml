@@ -68,3 +68,209 @@ jobs:
     defaults:
       run:
         working-directory: modules/suite-balance
+  catalog-merge-verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '24'
+    - run: python -m unittest -v
+    - run: python demo.py
+    - run: npm ci --prefix modules/message-parity --ignore-scripts
+    - run: python icu_demo.py
+    defaults:
+      run:
+        working-directory: modules/catalog-merge
+  catalog-merge-message-parity-verify:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+        node:
+        - '22'
+        - '24'
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-node@v6
+      with:
+        node-version: ${{ matrix.node }}
+    - run: npm ci --ignore-scripts
+    - run: npm test
+    - run: npm run demo
+    defaults:
+      run:
+        working-directory: modules/catalog-merge/modules/message-parity
+  rollout-lab-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: modules/rollout-lab/package-lock.json
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - run: npm ci
+    - run: python reference.py
+    - run: npm test
+    - run: node plan.js examples/checkout-plan.json demo-0090
+    - run: python -m pip install -r modules/exposure-audit/requirements.txt
+    - run: node examples/stage-audit.mjs
+    - run: npx playwright install --with-deps chromium
+    - run: npm run test:e2e
+    defaults:
+      run:
+        working-directory: modules/rollout-lab
+  rollout-lab-exposure-audit-verify:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+        cache: pip
+        cache-dependency-path: modules/rollout-lab/modules/exposure-audit/requirements.txt
+    - run: python -m pip install -r requirements.txt
+    - run: python -m unittest -v
+    - uses: actions/checkout@v7
+      with:
+        ref: 3cc291b20b147e53544504454aff6f74acced583
+        path: modules/rollout-lab/modules/exposure-audit/comparator
+    - run: python -m pip install flit_core==3.12.0
+    - run: python verify_install.py comparator
+    defaults:
+      run:
+        working-directory: modules/rollout-lab/modules/exposure-audit
+  theme-contrast-audit:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+    - run: npm ci
+    - run: npm test
+    - run: npx playwright install --with-deps chromium firefox
+    - run: npm run test:browsers
+    defaults:
+      run:
+        working-directory: modules/theme-contrast
+  frame-delta-compare:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-go@v6
+      with:
+        go-version: 1.25.x
+        cache: false
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - run: go vet ./...
+    - run: python -m pip install Pillow==13.0.0
+    - run: python -m unittest -v
+    defaults:
+      run:
+        working-directory: modules/frame-delta
+  patch-cover-patch:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - run: python -m pip install -r requirements.txt
+    - run: python -m unittest -v
+    - run: python demo.py
+    defaults:
+      run:
+        working-directory: modules/patch-cover
+  contract-witness-verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+        python:
+        - '3.12'
+        - '3.13'
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: ${{ matrix.python }}
+    - run: python -m pip install -r requirements-test.txt
+    - run: python -m unittest -v
+    defaults:
+      run:
+        working-directory: modules/contract-witness
+  wheel-witness-test:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - run: python -m pip install -r requirements-test.txt
+    - run: python -m unittest -v
+    defaults:
+      run:
+        working-directory: modules/wheel-witness
+  plugin-fit-verify:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: modules/plugin-fit/go.mod
+        cache: false
+    - run: go vet ./...
+    - run: go test -v ./...
+    - run: go run ./cmd/plugin-fit examples/editor.json
+    defaults:
+      run:
+        working-directory: modules/plugin-fit

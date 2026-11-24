@@ -1,9 +1,9 @@
 import {readFileSync} from "node:fs";
 import {plan} from "./planner.js";
-import {parseGitPaths, readPullRequest} from "./git-input.js";
+import {parseGitPaths, readPullRequest, readWorktree} from "./git-input.js";
 import {suiteStages} from "./suite-stages.js";
 
-const usage = "Usage: node cli.js [--why PROJECT | --suites] MANIFEST [--git BASE HEAD | --stdin0 | -- FILE ... | FILE ...]";
+const usage = "Usage: node cli.js [--why PROJECT | --suites] MANIFEST [--git BASE HEAD | --worktree | --stdin0 | -- FILE ... | FILE ...]";
 try {
   const input = process.argv.slice(2);
   const suites = input[0] === "--suites";
@@ -19,6 +19,9 @@ try {
   if (args[0] === "--git") {
     if (args.length !== 3) throw new Error(usage);
     ({manifest, files, fullReason, comparison} = readPullRequest(manifestPath, args[1], args[2]));
+  } else if (args[0] === "--worktree") {
+    if (args.length !== 1) throw new Error(usage);
+    ({manifest, files, fullReason, comparison} = readWorktree(manifestPath));
   } else {
     if (args[0] === "--stdin0") {
       if (args.length !== 1) throw new Error(usage);

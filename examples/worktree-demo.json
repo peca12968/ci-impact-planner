@@ -1,0 +1,10 @@
+{
+  "changes": {
+    "staged": ["apps/docs/guide.txt", "apps/web/user guide.txt"],
+    "unstaged": ["apps/web/user guide.txt"],
+    "untracked": ["apps/api/新增 路由.js"],
+    "conflicted": []
+  },
+  "staged_stages": [["docs", "web"], ["checkout-e2e"]],
+  "worktree_stages": [["api", "docs", "web"], ["checkout-e2e"]]
+}

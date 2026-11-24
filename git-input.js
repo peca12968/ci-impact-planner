@@ -1,5 +1,5 @@
 import {spawnSync} from "node:child_process";
-import {realpathSync} from "node:fs";
+import {readFileSync, realpathSync} from "node:fs";
 import path from "node:path";
 import {TextDecoder} from "node:util";
 
@@ -39,7 +39,7 @@ function outside(relative) {
   return !relative || relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative);
 }
 
-export function readPullRequest(manifestPath, baseRef, headRef) {
+function repositoryManifest(manifestPath, mode) {
   const root = utf8.decode(git(["rev-parse", "--show-toplevel"])).replace(/\r?\n$/, "");
   const absolute = path.resolve(manifestPath);
   let relative = path.relative(root, absolute);
@@ -49,8 +49,12 @@ export function readPullRequest(manifestPath, baseRef, headRef) {
     relative = path.relative(realpathSync.native(root), local);
   }
   if (outside(relative))
-    throw new Error("In --git mode the manifest must be a path inside the repository");
-  const manifestFile = relative.split(path.sep).join("/");
+    throw new Error(`In ${mode} mode the manifest must be a path inside the repository`);
+  return {root, file: relative.split(path.sep).join("/")};
+}
+
+export function readPullRequest(manifestPath, baseRef, headRef) {
+  const {file: manifestFile} = repositoryManifest(manifestPath, "--git");
   const base = commit(baseRef);
   const head = commit(headRef);
   const bases = git(["merge-base", "--all", base, head], true).toString("ascii").trim();
@@ -64,4 +68,35 @@ export function readPullRequest(manifestPath, baseRef, headRef) {
   const files = parseGitPaths(git(["diff", "--no-renames", "--no-relative", "--ignore-submodules=none",
     "--name-only", "-z", mergeBases[0], head, "--"]));
   return {manifest, files, comparison, fullReason: files.includes(manifestFile) ? "manifest_changed" : null};
+}
+
+const conflicts = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
+
+export function readWorktree(manifestPath) {
+  const {root, file: manifestFile} = repositoryManifest(manifestPath, "--worktree");
+  const resolved = realpathSync.native(manifestPath);
+  const actual = path.relative(realpathSync.native(root), resolved);
+  if (outside(actual)) throw new Error("The working manifest must resolve inside the repository");
+  const actualFile = actual.split(path.sep).join("/");
+  const entries = parseGitPaths(git(["--no-optional-locks", "status", "--porcelain=v1", "-z",
+    "--no-renames", "--untracked-files=all", "--ignore-submodules=none"]));
+  const changes = {staged: [], unstaged: [], untracked: [], conflicted: []};
+  for (const entry of entries) {
+    if (entry.length < 4 || entry[2] !== " ") throw new Error("Invalid Git status entry");
+    const status = entry.slice(0, 2);
+    const file = entry.slice(3);
+    if (status === "??") changes.untracked.push(file);
+    else if (conflicts.has(status)) changes.conflicted.push(file);
+    else {
+      if (status[0] !== " ") changes.staged.push(file);
+      if (status[1] !== " ") changes.unstaged.push(file);
+    }
+  }
+  for (const list of Object.values(changes)) list.sort();
+  const files = [...new Set(Object.values(changes).flat())].sort();
+  const manifestChanged = files.includes(manifestFile) || files.includes(actualFile);
+  const tracked = manifestChanged || git(["-C", root, "--literal-pathspecs", "ls-files", "-z", "--", actualFile]).length > 0;
+  const fullReason = manifestChanged ? "manifest_changed" : tracked ? null : "manifest_untracked";
+  const manifest = JSON.parse(utf8.decode(readFileSync(resolved)).replace(/^\uFEFF/, ""));
+  return {manifest, files, comparison: {source: "worktree", manifest: manifestFile, changes}, fullReason};
 }

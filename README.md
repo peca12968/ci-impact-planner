@@ -79,6 +79,16 @@ git diff --no-renames --name-only -z BASE HEAD | node cli.js examples/projects.j
 
 成功時 stdout 為 JSON。辨識到無歸屬路徑時，`mode` 是 `full`，並在 `unowned` 列出原因。空差異回傳空的 `stages`。輸入格式錯誤、相依循環或專案目錄重疊時，CLI 回傳結束碼 2，避免產生不完整計畫。
 
+### 提交前先規劃測試
+
+```sh
+node cli.js --why checkout-e2e examples/projects.json --worktree
+```
+
+`--worktree` 使用目前工作目錄裡的專案清單，並從 Git 取得已暫存、未暫存、新增和衝突檔案。報告的 `comparison.changes` 分別列出 `staged`、`unstaged`、`untracked` 和 `conflicted`。同檔案可同時出現在暫存與未暫存欄位，計畫只計一次。搬移會把舊路徑及新路徑一起納入，Git 忽略的檔案則不參與規劃。指令只讀取 Git 狀態與清單，也可搭配 `--suites`。
+
+若把文件從 docs 搬到 web，搬完又編輯它，再新增一個 API 路由，計畫第一階段會平行測 api、docs 和 web，第二階段測 checkout-e2e。編輯了專案清單時，工具會以 `manifest_changed` 選取全部專案。指定未被 Git 追蹤且被忽略的另一份清單時，會以 `manifest_untracked` 保守地選取全部。規劃使用當下的工作目錄，請在同一次讀取期間維持檔案內容穩定。[Git 整合測試](test/git-input.test.js) · [作品站共用的範例結果](examples/worktree-demo.json)
+
 ## 設計與範圍
 
 - 以反向相依圖沿途展開受影響的專案，再以拓撲排序建立測試階段。同階段使用穩定的名稱順序，輸入檔案順序不影響結果。

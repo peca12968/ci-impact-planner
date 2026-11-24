@@ -5,6 +5,7 @@ import {mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync
 import os from "node:os";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
+import {plan} from "../planner.js";
 
 const cli = fileURLToPath(new URL("../cli.js", import.meta.url));
 const graph = readFileSync(new URL("../examples/projects.json", import.meta.url), "utf8");
@@ -34,13 +35,101 @@ function fixture(t) {
   const base = save("base");
   const run = (baseRef, headRef, cwd = root, file = path.join(root, manifest), flags = []) =>
     spawnSync(process.execPath, [cli, ...flags, file, "--git", baseRef, headRef], {cwd, encoding:"utf8"});
+  const worktree = (cwd = root, file = path.join(root, manifest), flags = []) =>
+    spawnSync(process.execPath, [cli, ...flags, file, "--worktree"], {cwd, encoding:"utf8"});
   const report = (...args) => {
     const result = run(...args);
     assert.equal(result.status, 0, result.stderr);
     return JSON.parse(result.stdout);
   };
-  return {root, base, git, write, save, run, report};
+  return {root, base, git, write, save, run, report, worktree};
 }
+
+test("worktree planning keeps both sides of a move and distinguishes staged, unstaged and new paths", t => {
+  const demo = JSON.parse(readFileSync(new URL("../examples/worktree-demo.json", import.meta.url), "utf8"));
+  const f = fixture(t);
+  f.write(".gitignore", "*.local\n");
+  f.save("ignore local build scratch files");
+  const clean = f.worktree();
+  assert.equal(clean.status, 0, clean.stderr);
+  assert.equal(JSON.parse(clean.stdout).selected, 0);
+  f.write("apps/web/ignored.local", "ignored");
+  const moved = "apps/web/user guide.txt";
+  f.write(moved, "initial content");
+  f.git("add", "--", moved);
+  f.git("rm", "-q", "--", "apps/docs/guide.txt");
+  f.write(moved, "edited after staging");
+  const extra = "apps/api/新增 路由.js";
+  f.write(extra, "a new route");
+  const result = f.worktree(path.join(f.root, "apps", "docs"), "graph.json", ["--why", "checkout-e2e"]);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.comparison, {
+    source: "worktree", manifest,
+    changes: demo.changes,
+  });
+  assert.deepEqual(report.direct, ["api", "docs", "web"]);
+  assert.deepEqual(report.stages, demo.worktree_stages);
+  assert.deepEqual(plan(JSON.parse(graph), report.comparison.changes.staged).stages, demo.staged_stages);
+  assert.deepEqual(report.why.causes, [
+    {files: [extra], chain: ["api", "checkout-e2e"]},
+    {files: [moved], chain: ["web", "checkout-e2e"]},
+  ]);
+  assert.equal(f.git("show", ":" + moved), "initial content");
+  assert.equal(readFileSync(path.join(f.root, moved), "utf8"), "edited after staging");
+  if (process.platform !== "win32") {
+    const multiline = "apps/web/notes\nfinal.txt";
+    f.write(multiline, "Git paths may contain newlines");
+    const output = f.worktree();
+    assert.equal(output.status, 0, output.stderr);
+    assert.deepEqual(JSON.parse(output.stdout).comparison.changes.untracked, [extra, multiline]);
+  }
+});
+
+test("worktree changes to the graph take the conservative path, including ignored manifests", t => {
+  const f = fixture(t);
+  const updated = JSON.parse(graph);
+  updated.projects.push({name: "mobile", dir: "apps/mobile", dependencies: ["api"]});
+  f.write(manifest, JSON.stringify(updated));
+  const result = f.worktree();
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.fullReason, "manifest_changed");
+  assert.deepEqual(report.comparison.changes.unstaged, [manifest]);
+  assert.equal(report.selected, 6);
+  assert.ok(report.stages.flat().includes("mobile"));
+
+  f.git("restore", "--", manifest);
+  f.write(".gitignore", "*.local\n");
+  f.save("track only the shared manifest");
+  f.write("apps/docs/graph.local", JSON.stringify(updated));
+  const alternate = f.worktree(f.root, "apps/docs/graph.local");
+  assert.equal(alternate.status, 0, alternate.stderr);
+  const local = JSON.parse(alternate.stdout);
+  assert.deepEqual(local.comparison.changes.untracked, []);
+  assert.equal(local.fullReason, "manifest_untracked");
+  assert.equal(local.selected, 6);
+});
+
+test("worktree planning identifies real merge conflicts without changing the index", t => {
+  const f = fixture(t);
+  const conflicted = "apps/docs/guide.txt";
+  f.git("switch", "-qc", "topic");
+  f.write(conflicted, "topic version\n");
+  f.save("topic edits the guide");
+  f.git("switch", "-q", "main");
+  f.write(conflicted, "main version\n");
+  f.save("main edits the same guide");
+  const merge = spawnSync("git", ["merge", "topic"], {cwd: f.root, encoding: "utf8"});
+  assert.equal(merge.status, 1, merge.stderr);
+  const before = f.git("ls-files", "--unmerged");
+  const result = f.worktree();
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.comparison.changes, {staged: [], unstaged: [], untracked: [], conflicted: [conflicted]});
+  assert.deepEqual(report.stages, [["docs"]]);
+  assert.equal(f.git("ls-files", "--unmerged"), before);
+});
 
 test("selects only branch changes, reporting both sides of moves even from a nested directory", t => {
   const f = fixture(t);
